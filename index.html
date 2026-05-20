@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mermaid Editor</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <script src="mermaid-11.15.0.js"></script>
+  <style>
+    /* ── Color tokens ─────────────────────────────────────────────────────────── */
+    :root {
+      --bg:           #1e1e1e;
+      --bg-mid:       #252526;
+      --bg-bar:       #2d2d2d;
+      --bg-btn:       #3a3a3a;
+      --bg-btn-hover: #4a4a4a;
+      --border:       #444;
+      --border-light: #333;
+      --text:         #d4d4d4;
+      --text-dim:     #888;
+      --text-dimmer:  #666;
+      --text-file:    #9cdcfe;
+      --divider:      #444;
+      --modal-bg:     #2d2d2d;
+      --modal-border: #555;
+      --modal-title:  #e8c86e;
+      --modal-body:   #ccc;
+    }
+
+    body.light-mode {
+      --bg:           #ffffff;
+      --bg-mid:       #f8f8f8;
+      --bg-bar:       #f0f0f0;
+      --bg-btn:       #e0e0e0;
+      --bg-btn-hover: #d0d0d0;
+      --border:       #cccccc;
+      --border-light: #dddddd;
+      --text:         #1e1e1e;
+      --text-dim:     #666666;
+      --text-dimmer:  #999999;
+      --text-file:    #0066cc;
+      --divider:      #bbbbbb;
+      --modal-bg:     #ffffff;
+      --modal-border: #cccccc;
+      --modal-title:  #b08000;
+      --modal-body:   #444444;
+    }
+
+    /* ── Base ────────────────────────────────────────────────────────────────── */
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: monospace;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    /* ── Toolbar ─────────────────────────────────────────────────────────────── */
+
+    #toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--bg-bar);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    #app-title { font-size: 13px; font-weight: bold; color: var(--text); margin-right: 4px; }
+
+    #file-name { font-size: 13px; color: var(--text-file); flex: 1; }
+
+    #toolbar button {
+      font-family: monospace;
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border-radius: 4px;
+      padding: 5px 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+
+    #theme-btn, #new-btn, #open-btn {
+      background: var(--bg-btn);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    #theme-btn:hover, #new-btn:hover, #open-btn:hover { background: var(--bg-btn-hover); }
+
+    /* ── Open dropdown menu ──────────────────────────────────────────────────── */
+
+    #open-wrapper { position: relative; }
+
+    #open-menu {
+      display: none;
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      background: var(--modal-bg);
+      border: 1px solid var(--modal-border);
+      border-radius: 4px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      z-index: 50;
+      min-width: 140px;
+      overflow: hidden;
+    }
+
+    #open-menu.visible { display: block; }
+
+    #open-menu button {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      width: 100%;
+      padding: 8px 14px;
+      font-family: monospace;
+      font-size: 13px;
+      background: transparent;
+      color: var(--text);
+      border: none;
+      border-radius: 0;
+      cursor: pointer;
+      text-align: left;
+      white-space: nowrap;
+      transition: background 0.1s;
+    }
+
+    #open-menu button:hover { background: var(--bg-btn-hover); }
+
+    /* ── URL modal ───────────────────────────────────────────────────────────── */
+
+    #url-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #url-modal-overlay.visible { display: flex; }
+
+    #url-modal-dialog {
+      background: var(--modal-bg);
+      border: 1px solid var(--modal-border);
+      border-radius: 6px;
+      padding: 24px 28px;
+      max-width: 520px;
+      width: 90%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    }
+
+    #url-modal-title { font-size: 15px; font-weight: bold; color: var(--modal-title); margin-bottom: 14px; }
+
+    #url-input {
+      width: 100%;
+      font-family: monospace;
+      font-size: 13px;
+      padding: 7px 10px;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--modal-border);
+      border-radius: 4px;
+      outline: none;
+      margin-bottom: 18px;
+    }
+
+    #url-input:focus { border-color: #0e639c; }
+    #url-input::placeholder { color: var(--text-dimmer); }
+
+    #url-modal-error {
+      font-size: 12px;
+      color: #f48771;
+      margin-top: -12px;
+      margin-bottom: 14px;
+      display: none;
+      white-space: pre-wrap;
+      line-height: 1.5;
+    }
+
+    #url-modal-buttons { display: flex; gap: 10px; justify-content: flex-end; }
+
+    #url-modal-open {
+      font-family: monospace; font-size: 13px;
+      background: #0e639c; color: #fff;
+      border: none; border-radius: 4px; padding: 6px 16px;
+      cursor: pointer; transition: background 0.15s;
+    }
+    #url-modal-open:hover { background: #1177bb; }
+    #url-modal-open:disabled { background: var(--bg-btn); color: var(--text-dim); cursor: default; }
+
+    #url-modal-cancel {
+      font-family: monospace; font-size: 13px;
+      background: var(--bg-btn); color: var(--text);
+      border: 1px solid var(--modal-border); border-radius: 4px; padding: 6px 16px;
+      cursor: pointer; transition: background 0.15s;
+    }
+    #url-modal-cancel:hover { background: var(--bg-btn-hover); }
+
+    #save-btn { background: #0e639c; color: #fff; border: none; }
+    #save-btn:hover { background: #1177bb; }
+    #save-btn:disabled { background: var(--bg-btn); color: var(--text-dim); cursor: default; }
+
+    /* ── Layout ──────────────────────────────────────────────────────────────── */
+
+    #main { display: flex; flex: 1; overflow: hidden; }
+
+    #editor-pane { flex: 1; display: flex; flex-direction: column; min-width: 200px; }
+
+    #editor-header {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      background: var(--bg-bar);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    #editor-header button {
+      font-family: monospace;
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      background: transparent;
+      color: var(--text);
+      border: 1px solid transparent;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      white-space: nowrap;
+    }
+
+    #editor-header button:hover { background: var(--bg-btn); border-color: var(--border); }
+    #editor-header button svg { display: block; flex-shrink: 0; }
+
+    #editor-body {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    #line-numbers {
+      flex-shrink: 0;
+      width: 3em;
+      padding: 12px 6px 12px 0;
+      font-family: monospace;
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--text-dimmer);
+      text-align: right;
+      background: var(--bg);
+      border-right: 1px solid var(--border-light);
+      user-select: none;
+      overflow: hidden;
+      white-space: pre;
+    }
+
+    #editor {
+      flex: 1;
+      resize: none;
+      background: var(--bg);
+      color: var(--text);
+      font-family: monospace;
+      font-size: 14px;
+      line-height: 1.5;
+      padding: 12px 12px 12px 10px;
+      border: none;
+      outline: none;
+      tab-size: 2;
+    }
+
+    .divider {
+      width: 5px;
+      cursor: col-resize;
+      background: var(--divider);
+      flex-shrink: 0;
+      transition: background 0.1s;
+      z-index: 10;
+    }
+
+    .divider:hover, .divider.dragging { background: #0e639c; }
+
+    #preview-pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 200px; }
+
+    #preview-pane-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-dim);
+      padding: 4px 12px;
+      background: var(--bg-bar);
+      border-bottom: 1px solid var(--border-light);
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    #zoom-label { font-size: 11px; color: var(--text-dimmer); }
+
+    #preview-container {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+      background: var(--bg-mid);
+      cursor: default;
+    }
+
+    #preview-container.panning { cursor: grabbing; }
+
+    #preview-world { position: absolute; top: 0; left: 0; width: 100%; transform-origin: 0 0; }
+
+    #preview svg { display: block; width: 100%; height: auto; }
+
+    #error-msg { color: #f48771; font-size: 13px; padding: 12px; white-space: pre-wrap; display: none; }
+
+    /* ── Reload modal ────────────────────────────────────────────────────────── */
+
+    #modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #modal-overlay.visible { display: flex; }
+
+    #modal-dialog {
+      background: var(--modal-bg);
+      border: 1px solid var(--modal-border);
+      border-radius: 6px;
+      padding: 24px 28px;
+      max-width: 440px;
+      width: 90%;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    }
+
+    #modal-title { font-size: 15px; font-weight: bold; color: var(--modal-title); margin-bottom: 10px; }
+    #modal-body { font-size: 13px; color: var(--modal-body); line-height: 1.5; margin-bottom: 20px; }
+    #modal-body strong { color: var(--text-file); }
+    #modal-buttons { display: flex; gap: 10px; justify-content: flex-end; }
+
+    #modal-reload {
+      font-family: monospace; font-size: 13px;
+      background: #0e639c; color: #fff;
+      border: none; border-radius: 4px; padding: 6px 16px;
+      cursor: pointer; transition: background 0.15s;
+    }
+    #modal-reload:hover { background: #1177bb; }
+
+    #modal-keep {
+      font-family: monospace; font-size: 13px;
+      background: var(--bg-btn); color: var(--text);
+      border: 1px solid var(--modal-border); border-radius: 4px; padding: 6px 16px;
+      cursor: pointer; transition: background 0.15s;
+    }
+    #modal-keep:hover { background: var(--bg-btn-hover); }
+  </style>
+</head>
+<body>
+
+<div id="toolbar">
+  <input type="file" id="file-input" accept=".mmd,.md,.txt" style="display:none">
+  <span id="app-title">Mermaid Editor</span>
+  <span id="file-name">No file selected</span>
+  <button id="theme-btn"></button>
+  <button id="new-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+      <line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
+    </svg>
+    New
+  </button>
+  <div id="open-wrapper">
+    <button id="open-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+      </svg>
+      Open …
+    </button>
+    <div id="open-menu">
+      <button id="open-file-item">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+        </svg>
+        From File
+      </button>
+      <button id="open-url-item">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+        </svg>
+        From URL
+      </button>
+    </div>
+  </div>
+  <button id="save-btn" disabled>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+      <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+    </svg>
+    Save
+  </button>
+</div>
+
+<div id="main">
+  <div id="editor-pane">
+    <div id="editor-header">
+      <button id="undo-btn" title="Undo (Ctrl+Z)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5.55"/>
+        </svg>
+        Undo
+      </button>
+      <button id="redo-btn" title="Redo (Ctrl+Y)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.49-5.55"/>
+        </svg>
+        Redo
+      </button>
+      <button id="reload-btn" title="Reload from disk">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+        </svg>
+        Reload
+      </button>
+    </div>
+    <div id="editor-body">
+      <div id="line-numbers">1</div>
+      <textarea id="editor" spellcheck="false" placeholder="Open a .mmd file or type/paste Mermaid code here..."></textarea>
+    </div>
+  </div>
+  <div class="divider" id="divider"></div>
+  <div id="preview-pane">
+    <div id="preview-pane-header">
+      <span>Preview</span>
+      <span id="zoom-label">100% &nbsp;·&nbsp; double-click to reset</span>
+    </div>
+    <div id="preview-container">
+      <div id="preview-world">
+        <div id="preview"></div>
+        <div id="error-msg"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="url-modal-overlay">
+  <div id="url-modal-dialog">
+    <div id="url-modal-title">Open from URL</div>
+    <input id="url-input" type="url" placeholder="https://example.com/diagram.mmd" autocomplete="off" spellcheck="false">
+    <div id="url-modal-error"></div>
+    <div id="url-modal-buttons">
+      <button id="url-modal-cancel">Cancel</button>
+      <button id="url-modal-open">Open</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-overlay">
+  <div id="modal-dialog">
+    <div id="modal-title">File Changed on Disk</div>
+    <div id="modal-body">
+      The file <strong id="modal-filename"></strong> has been modified on disk.
+      Do you want to reload it, or keep your current editor content?
+    </div>
+    <div id="modal-buttons">
+      <button id="modal-keep">Keep current editor content</button>
+      <button id="modal-reload">Reload from disk</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── SVG icons (injected dynamically for theme button) ─────────────────────────
+
+  const ICON_SUN = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="5"/>
+    <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+    <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+  </svg>`;
+
+  const ICON_MOON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+  </svg>`;
+
+  // ── IndexedDB handle persistence ──────────────────────────────────────────────
+
+  const IDB_NAME  = 'mermaid-viewer';
+  const IDB_STORE = 'handles';
+  const IDB_KEY   = 'current';
+
+  function openIDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror   = () => reject(req.error);
+    });
+  }
+
+  async function saveHandleToIDB(handle) {
+    const db = await openIDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(handle, IDB_KEY);
+      tx.oncomplete = resolve;
+      tx.onerror    = () => reject(tx.error);
+    });
+  }
+
+  async function loadHandleFromIDB() {
+    try {
+      const db = await openIDB();
+      return new Promise((resolve, reject) => {
+        const tx  = db.transaction(IDB_STORE, 'readonly');
+        const req = tx.objectStore(IDB_STORE).get(IDB_KEY);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror   = () => reject(req.error);
+      });
+    } catch { return null; }
+  }
+
+  async function clearHandleFromIDB() {
+    try {
+      const db = await openIDB();
+      return new Promise((resolve) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).delete(IDB_KEY);
+        tx.oncomplete = resolve;
+      });
+    } catch { /* ignore */ }
+  }
+
+  // ── Element refs ──────────────────────────────────────────────────────────────
+
+  const fileInput     = document.getElementById('file-input');
+  const fileNameEl    = document.getElementById('file-name');
+  const themeBtn      = document.getElementById('theme-btn');
+  const newBtn        = document.getElementById('new-btn');
+  const openBtn       = document.getElementById('open-btn');
+  const openMenu      = document.getElementById('open-menu');
+  const openFileItem  = document.getElementById('open-file-item');
+  const openUrlItem   = document.getElementById('open-url-item');
+  const saveBtn       = document.getElementById('save-btn');
+  const undoBtn       = document.getElementById('undo-btn');
+  const redoBtn       = document.getElementById('redo-btn');
+  const reloadBtn     = document.getElementById('reload-btn');
+  const editor        = document.getElementById('editor');
+  const lineNumbers   = document.getElementById('line-numbers');
+  const preview       = document.getElementById('preview');
+  const errorMsg      = document.getElementById('error-msg');
+  const previewCont   = document.getElementById('preview-container');
+  const previewWorld  = document.getElementById('preview-world');
+  const zoomLabel     = document.getElementById('zoom-label');
+  const divider       = document.getElementById('divider');
+  const editorPane    = document.getElementById('editor-pane');
+  const previewPane   = document.getElementById('preview-pane');
+  const mainEl        = document.getElementById('main');
+  const urlModalOverlay = document.getElementById('url-modal-overlay');
+  const urlInput        = document.getElementById('url-input');
+  const urlModalError   = document.getElementById('url-modal-error');
+  const urlModalOpen    = document.getElementById('url-modal-open');
+  const urlModalCancel  = document.getElementById('url-modal-cancel');
+  const modalOverlay    = document.getElementById('modal-overlay');
+  const modalFilename   = document.getElementById('modal-filename');
+  const modalReload     = document.getElementById('modal-reload');
+  const modalKeep       = document.getElementById('modal-keep');
+
+  // ── State ─────────────────────────────────────────────────────────────────────
+
+  let currentFileHandle = null;
+  let pendingHandle     = null; // IDB-restored handle awaiting permission gesture
+  let lastModified      = null;
+  let pollInterval      = null;
+  let renderTimer       = null;
+  let renderId          = 0;
+  let isLightMode       = true;
+
+  // Ensure we have readwrite permission for a handle.
+  // May be called only from a user-gesture context when permission is 'prompt'.
+  async function ensurePermission(handle) {
+    const perm = await handle.queryPermission({ mode: 'readwrite' });
+    if (perm === 'granted') return true;
+    if (perm === 'prompt') {
+      const result = await handle.requestPermission({ mode: 'readwrite' });
+      return result === 'granted';
+    }
+    return false;
+  }
+
+  // ── Theme toggle ──────────────────────────────────────────────────────────────
+
+  function applyTheme(light) {
+    isLightMode = light;
+    document.body.classList.toggle('light-mode', light);
+    themeBtn.innerHTML = light ? `${ICON_SUN} Light` : `${ICON_MOON} Dark`;
+    localStorage.setItem('mermaid-viewer:theme', light ? 'light' : 'dark');
+    mermaid.initialize({ startOnLoad: false, theme: light ? 'default' : 'dark' });
+    renderId++;
+    renderDiagram();
+  }
+
+  themeBtn.addEventListener('click', () => applyTheme(!isLightMode));
+
+  // ── Undo / Redo ───────────────────────────────────────────────────────────────
+
+  function editorExecCommand(cmd) {
+    editor.focus();
+    document.execCommand(cmd);
+    persistContent();
+    scheduleRender();
+    updateLineNumbers();
+  }
+
+  undoBtn.addEventListener('click', () => editorExecCommand('undo'));
+  redoBtn.addEventListener('click', () => editorExecCommand('redo'));
+
+  // ── Zoom / Pan ────────────────────────────────────────────────────────────────
+
+  let scale = 1, tx = 0, ty = 0;
+
+  function applyTransform() {
+    previewWorld.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+    zoomLabel.textContent = `${Math.round(scale * 100)}%  ·  double-click to reset`;
+  }
+
+  function resetView() { scale = 1; tx = 0; ty = 0; applyTransform(); }
+
+  previewCont.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect     = previewCont.getBoundingClientRect();
+    const cx       = e.clientX - rect.left;
+    const cy       = e.clientY - rect.top;
+    const factor   = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+    const newScale = Math.min(Math.max(scale * factor, 0.05), 50);
+    tx = cx - (cx - tx) * (newScale / scale);
+    ty = cy - (cy - ty) * (newScale / scale);
+    scale = newScale;
+    applyTransform();
+  }, { passive: false });
+
+  previewCont.addEventListener('dblclick', resetView);
+
+  // ── Pan (middle mouse button) ─────────────────────────────────────────────────
+
+  let isPanning = false, panStartX, panStartY, panStartTx, panStartTy;
+
+  previewCont.addEventListener('mousedown', (e) => {
+    if (e.button !== 1 || isDividerDragging) return;
+    isPanning = true;
+    panStartX = e.clientX; panStartY = e.clientY;
+    panStartTx = tx;       panStartTy = ty;
+    previewCont.classList.add('panning');
+    e.preventDefault();
+  });
+
+  // ── Divider drag ──────────────────────────────────────────────────────────────
+
+  let isDividerDragging = false;
+  let dividerPct        = null;
+
+  const LS_DIVIDER = 'mermaid-viewer:divider';
+
+  function applyDividerPct(pct) {
+    const total = mainEl.getBoundingClientRect().width - divider.offsetWidth;
+    editorPane.style.flex  = 'none';
+    editorPane.style.width = (pct * total) + 'px';
+    previewPane.style.flex = '1';
+  }
+
+  divider.addEventListener('mousedown', (e) => {
+    isDividerDragging = true;
+    divider.classList.add('dragging');
+    document.body.style.cursor     = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (isDividerDragging) {
+      const rect   = mainEl.getBoundingClientRect();
+      const offset = e.clientX - rect.left;
+      const total  = rect.width - divider.offsetWidth;
+      dividerPct   = Math.min(Math.max(offset / total, 0.15), 0.85);
+      editorPane.style.flex  = 'none';
+      editorPane.style.width = (dividerPct * total) + 'px';
+      previewPane.style.flex = '1';
+    }
+    if (isPanning) {
+      tx = panStartTx + (e.clientX - panStartX);
+      ty = panStartTy + (e.clientY - panStartY);
+      applyTransform();
+    }
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (isDividerDragging) {
+      isDividerDragging = false;
+      divider.classList.remove('dragging');
+      document.body.style.cursor     = '';
+      document.body.style.userSelect = '';
+      if (dividerPct !== null) localStorage.setItem(LS_DIVIDER, dividerPct);
+    }
+    if (isPanning) {
+      isPanning = false;
+      previewCont.classList.remove('panning');
+    }
+  });
+
+  // ── Persistence ───────────────────────────────────────────────────────────────
+
+  const LS_CONTENT  = 'mermaid-viewer:content';
+  const LS_FILENAME = 'mermaid-viewer:filename';
+
+  function persistContent() {
+    localStorage.setItem(LS_CONTENT,  editor.value);
+    localStorage.setItem(LS_FILENAME, fileNameEl.textContent);
+  }
+
+  // ── File change polling ───────────────────────────────────────────────────────
+
+  function startPolling(handle) {
+    stopPolling();
+    currentFileHandle = handle;
+    pollInterval = setInterval(async () => {
+      if (!currentFileHandle) { stopPolling(); return; }
+      try {
+        const file = await currentFileHandle.getFile();
+        if (file.lastModified !== lastModified) { stopPolling(); showReloadModal(); }
+      } catch { stopPolling(); }
+    }, 2000);
+  }
+
+  function stopPolling() { clearInterval(pollInterval); pollInterval = null; }
+
+  // ── Reload modal ──────────────────────────────────────────────────────────────
+
+  function showReloadModal() {
+    modalFilename.textContent = fileNameEl.textContent;
+    modalOverlay.classList.add('visible');
+  }
+
+  modalReload.addEventListener('click', async () => {
+    modalOverlay.classList.remove('visible');
+    if (!currentFileHandle) return;
+    try {
+      const file   = await currentFileHandle.getFile();
+      lastModified = file.lastModified;
+      editor.value = await file.text();
+      persistContent();
+      scheduleRender();
+      updateLineNumbers();
+      startPolling(currentFileHandle);
+    } catch (err) { alert('Reload failed: ' + err.message); }
+  });
+
+  modalKeep.addEventListener('click', async () => {
+    modalOverlay.classList.remove('visible');
+    if (currentFileHandle) {
+      try { const file = await currentFileHandle.getFile(); lastModified = file.lastModified; }
+      catch { /* ignore */ }
+      startPolling(currentFileHandle);
+    }
+  });
+
+  // ── File open ─────────────────────────────────────────────────────────────────
+
+  async function activateHandle(handle) {
+    const file             = await handle.getFile();
+    lastModified           = file.lastModified;
+    fileNameEl.textContent = file.name;
+    editor.value           = await file.text();
+    saveBtn.disabled       = false;
+    persistContent();
+    resetView();
+    scheduleRender();
+    updateLineNumbers();
+    startPolling(handle);
+    saveHandleToIDB(handle);
+  }
+
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    stopPolling();
+    currentFileHandle      = null;
+    pendingHandle          = null;
+    lastModified           = null;
+    fileNameEl.textContent = file.name;
+    editor.value           = await file.text();
+    saveBtn.disabled       = false;
+    persistContent();
+    resetView();
+    scheduleRender();
+    updateLineNumbers();
+    clearHandleFromIDB();
+  });
+
+  fileInput.addEventListener('click', async (e) => {
+    if (!('showOpenFilePicker' in window)) return;
+    e.preventDefault();
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: 'Mermaid files', accept: { 'text/plain': ['.mmd', '.md', '.txt'] } }],
+        multiple: false
+      });
+      await activateHandle(handle);
+    } catch (err) { if (err.name !== 'AbortError') console.error(err); }
+  });
+
+  newBtn.addEventListener('click', () => {
+    stopPolling();
+    currentFileHandle      = null;
+    pendingHandle          = null;
+    lastModified           = null;
+    editor.value           = '';
+    fileNameEl.textContent = 'No file selected';
+    saveBtn.disabled       = true;
+    preview.innerHTML      = '';
+    errorMsg.style.display = 'none';
+    persistContent();
+    resetView();
+    updateLineNumbers();
+    clearHandleFromIDB();
+  });
+
+  // ── Open dropdown ─────────────────────────────────────────────────────────────
+
+  openBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openMenu.classList.toggle('visible');
+  });
+
+  document.addEventListener('click', () => openMenu.classList.remove('visible'));
+  openMenu.addEventListener('click', (e) => e.stopPropagation());
+
+  openFileItem.addEventListener('click', () => {
+    openMenu.classList.remove('visible');
+    fileInput.click();
+  });
+
+  openUrlItem.addEventListener('click', () => {
+    openMenu.classList.remove('visible');
+    urlInput.value = '';
+    urlModalError.style.display = 'none';
+    urlModalError.textContent   = '';
+    urlModalOpen.disabled       = false;
+    urlModalOverlay.classList.add('visible');
+    setTimeout(() => urlInput.focus(), 50);
+  });
+
+  // ── URL modal ─────────────────────────────────────────────────────────────────
+
+  function closeUrlModal() { urlModalOverlay.classList.remove('visible'); }
+
+  urlModalCancel.addEventListener('click', closeUrlModal);
+  urlModalOverlay.addEventListener('click', (e) => { if (e.target === urlModalOverlay) closeUrlModal(); });
+
+  urlInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') urlModalOpen.click();
+    if (e.key === 'Escape') closeUrlModal();
+  });
+
+  urlModalOpen.addEventListener('click', async () => {
+    const url = urlInput.value.trim();
+    if (!url) return;
+    urlModalOpen.disabled       = true;
+    urlModalError.style.display = 'none';
+    urlModalError.textContent   = '';
+    let resp;
+    try {
+      resp = await fetch(url);
+    } catch {
+      urlModalError.textContent = 'Network request blocked — CORS restriction.\nThe server does not allow this page to read the response.\n\nFix: install a browser extension that relaxes CORS, then click Open again.\n  Chrome: "CORS Unblock" or "Allow CORS: Access-Control-Allow-Origin"\n  Firefox: "CORS Everywhere"\n\nAlternative: open the URL in your browser, save the file, use "From File".';
+      urlModalError.style.display = 'block';
+      urlModalOpen.disabled       = false;
+      return;
+    }
+    try {
+      if (!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText}`);
+      const text = await resp.text();
+      stopPolling();
+      currentFileHandle      = null;
+      pendingHandle          = null;
+      lastModified           = null;
+      const urlObj           = new URL(url);
+      const basename         = urlObj.pathname.split('/').filter(Boolean).pop() || 'remote-file';
+      fileNameEl.textContent = basename;
+      editor.value           = text;
+      saveBtn.disabled       = false;
+      persistContent();
+      resetView();
+      scheduleRender();
+      updateLineNumbers();
+      clearHandleFromIDB();
+      closeUrlModal();
+    } catch (err) {
+      urlModalError.textContent   = err.message || String(err);
+      urlModalError.style.display = 'block';
+      urlModalOpen.disabled       = false;
+    }
+  });
+
+  // ── Reload from disk button ───────────────────────────────────────────────────
+
+  reloadBtn.addEventListener('click', async () => {
+    const handle = await resolveHandle();
+    if (!handle) return;
+    try {
+      const file   = await handle.getFile();
+      lastModified = file.lastModified;
+      editor.value = await file.text();
+      persistContent();
+      scheduleRender();
+      updateLineNumbers();
+    } catch (err) { alert('Reload failed: ' + err.message); }
+  });
+
+  // ── Save ──────────────────────────────────────────────────────────────────────
+
+  // Resolve the active handle, requesting permission if needed (user-gesture safe).
+  async function resolveHandle() {
+    if (currentFileHandle) return currentFileHandle;
+
+    // Use a handle restored from IDB that still needs permission
+    if (pendingHandle) {
+      const granted = await ensurePermission(pendingHandle);
+      if (granted) {
+        currentFileHandle = pendingHandle;
+        pendingHandle     = null;
+        startPolling(currentFileHandle);
+        return currentFileHandle;
+      }
+      pendingHandle = null;
+    }
+
+    // Fall back to file picker
+    if ('showOpenFilePicker' in window) {
+      try {
+        const [handle] = await window.showOpenFilePicker({
+          types: [{ description: 'Mermaid files', accept: { 'text/plain': ['.mmd', '.md', '.txt'] } }],
+          multiple: false
+        });
+        currentFileHandle      = handle;
+        fileNameEl.textContent = handle.name;
+        persistContent();
+        saveHandleToIDB(handle);
+        startPolling(handle);
+        return handle;
+      } catch (err) {
+        if (err.name !== 'AbortError') console.error(err);
+      }
+    }
+    return null;
+  }
+
+  saveBtn.addEventListener('click', async () => {
+    const handle = await resolveHandle();
+    if (!handle) {
+      // Firefox fallback: download
+      const name = fileNameEl.textContent !== 'No file selected' ? fileNameEl.textContent : 'diagram.mmd';
+      const blob  = new Blob([editor.value], { type: 'text/plain' });
+      const url   = URL.createObjectURL(blob);
+      const a     = document.createElement('a');
+      a.href = url; a.download = name; a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+    try {
+      const writable = await handle.createWritable();
+      await writable.write(editor.value);
+      await writable.close();
+      const file = await handle.getFile();
+      lastModified = file.lastModified;
+      flashSaved();
+    } catch (err) { alert('Save failed: ' + err.message); }
+  });
+
+  function flashSaved() {
+    const origHTML = saveBtn.innerHTML;
+    saveBtn.innerHTML        = saveBtn.innerHTML.replace('Save', 'Saved!');
+    saveBtn.style.background = '#2d7a2d';
+    setTimeout(() => { saveBtn.innerHTML = origHTML; saveBtn.style.background = ''; }, 1200);
+  }
+
+  // ── Live preview ──────────────────────────────────────────────────────────────
+
+  // ── Line numbers ──────────────────────────────────────────────────────────────
+
+  function updateLineNumbers() {
+    const count = editor.value.split('\n').length;
+    let text = '';
+    for (let i = 1; i <= count; i++) text += i + '\n';
+    lineNumbers.textContent = text;
+    lineNumbers.scrollTop = editor.scrollTop;
+  }
+
+  editor.addEventListener('input', () => { persistContent(); scheduleRender(); updateLineNumbers(); });
+  editor.addEventListener('scroll', () => { lineNumbers.scrollTop = editor.scrollTop; });
+
+  function scheduleRender() {
+    clearTimeout(renderTimer);
+    renderTimer = setTimeout(renderDiagram, 300);
+  }
+
+  async function renderDiagram() {
+    const code = editor.value.trim();
+    if (!code) {
+      preview.innerHTML      = '';
+      errorMsg.style.display = 'none';
+      return;
+    }
+    const id = 'mermaid-' + (++renderId);
+    try {
+      const { svg }          = await mermaid.render(id, code);
+      preview.innerHTML      = svg;
+      errorMsg.style.display = 'none';
+    } catch (err) {
+      preview.innerHTML      = '';
+      errorMsg.style.display = 'block';
+      errorMsg.textContent   = err.message || String(err);
+      const stale = document.getElementById(id);
+      if (stale) stale.remove();
+    }
+  }
+
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────────
+
+  editor.addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const s = editor.selectionStart, end = editor.selectionEnd;
+      editor.value = editor.value.slice(0, s) + '  ' + editor.value.slice(end);
+      editor.selectionStart = editor.selectionEnd = s + 2;
+      scheduleRender();
+      updateLineNumbers();
+      return;
+    }
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === 'z') { e.preventDefault(); editorExecCommand('undo'); }
+      if (e.key === 'y') { e.preventDefault(); editorExecCommand('redo'); }
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    if (e.key === 's') {
+      e.preventDefault();
+      if (!saveBtn.disabled) saveBtn.click();
+    } else if (e.key === 'o') {
+      e.preventDefault();
+      openBtn.click();
+    }
+  });
+
+  // ── Restore session (must be last) ────────────────────────────────────────────
+
+  async function restoreSession() {
+    applyTheme(localStorage.getItem('mermaid-viewer:theme') !== 'dark');
+
+    const savedDivider = parseFloat(localStorage.getItem(LS_DIVIDER));
+    if (!isNaN(savedDivider)) {
+      // Defer until layout is painted so getBoundingClientRect() returns real dimensions.
+      requestAnimationFrame(() => applyDividerPct(savedDivider));
+    }
+
+    const savedContent  = localStorage.getItem(LS_CONTENT);
+    const savedFilename = localStorage.getItem(LS_FILENAME);
+    if (savedContent !== null) {
+      editor.value           = savedContent;
+      fileNameEl.textContent = savedFilename || 'No file selected';
+      if (savedContent.trim()) saveBtn.disabled = false;
+      scheduleRender();
+      updateLineNumbers();
+    }
+
+    // Restore file handle from IndexedDB
+    if ('showOpenFilePicker' in window) {
+      const handle = await loadHandleFromIDB();
+      if (handle) {
+        const perm = await handle.queryPermission({ mode: 'readwrite' });
+        if (perm === 'granted') {
+          // Permission still active — restore silently
+          try {
+            const file    = await handle.getFile();
+            lastModified  = file.lastModified;
+            currentFileHandle = handle;
+            startPolling(handle);
+          } catch { clearHandleFromIDB(); }
+        } else if (perm === 'prompt') {
+          // Keep handle ready; permission will be requested on first Save/Reload click
+          pendingHandle = handle;
+        } else {
+          clearHandleFromIDB();
+        }
+      }
+    }
+  }
+
+  restoreSession();
+</script>
+</body>
+</html>
