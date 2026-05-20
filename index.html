@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mermaid Editor</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <script src="mermaid-11.15.0.js"></script>
+  <script src="ext/mermaid/mermaid-11.15.0.js"></script>
   <style>
     /* ── Color tokens ─────────────────────────────────────────────────────────── */
     :root {
@@ -451,7 +451,7 @@
   <div id="preview-pane">
     <div id="preview-pane-header">
       <span>Preview</span>
-      <span id="zoom-label">100% &nbsp;·&nbsp; double-click to reset</span>
+      <span id="zoom-label">100% · double-click to reset · click mouse wheel to drag diagram</span>
     </div>
     <div id="preview-container">
       <div id="preview-world">
@@ -641,7 +641,7 @@
 
   function applyTransform() {
     previewWorld.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
-    zoomLabel.textContent = `${Math.round(scale * 100)}%  ·  double-click to reset`;
+    zoomLabel.textContent = `${Math.round(scale * 100)}%  ·  double-click to reset · click mouse wheel to drag diagram`;
   }
 
   function resetView() { scale = 1; tx = 0; ty = 0; applyTransform(); }
